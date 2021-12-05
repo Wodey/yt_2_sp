@@ -15,7 +15,8 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
 
 #([a-z'=:\-\d]\s*)+ - ([a-z=:\-\d']\s*)+ - regular expression for this task WORK
 #([a-z'=,():\-\d]\s*)+ - ([a-z=:\-\d']\s*)+ VERSION 0.2 WORK
-#(?:\d+:\d\d -)* ([a-z'=,():\-\d]\s*)+ (-|/) ([a-z=:\-\d']\s*)+ VERSION 0.3
+#([a-z'=,(’):\-\d]\s*)+ - ([a-z=:’\-\d']\s*)+ VERSION 0.22 Probably work
+#(?:\d+:\d\d -)* (([a-z'=,(’&):\-\d]\s*)+ (-|/) ([a-z=’:&\-\d']\s*)+)+ VERSION 0.3
 
 while not (name := input("Input a name of the playlist: ")):
     print("Name can't be empty, enter at least one symbol please...")
@@ -38,7 +39,7 @@ songs_for_playlist = []
 # iteration over the songs list and add each song to songs_for_playlist varialble
 for i in songs:
     try:
-        res = re.search("(?:\d+:\d\d -)* ([a-z'=,():\-\d]\s*)+ (-|/) ([a-z=:\-\d']\s*)+", i, flags=re.IGNORECASE).group(0)
+        res = re.search("(?:\d+:\d\d -)* (([a-z'=,(’&):\-\d]\s*)+ (-|/) ([a-z=’:&\-\d']\s*)+)+", i, flags=re.IGNORECASE).group(1)
     except:
         continue
     songs_for_playlist.append(search_a_song(res))
