@@ -1,86 +1,66 @@
-import re
-import spotipy
 import os
 from dotenv import load_dotenv
-from spotipy.oauth2 import SpotifyOAuth
 import logging
 from aiogram import Bot, Dispatcher, executor, types
+from sp import SpotifyController
+
+state = {
+    "page": 0,
+    "name": "playlist",
+    "description": ""
+}
 
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
+sp_controller = SpotifyController()
 
-# function that search for a song with spotify api, it returns songs url if it found it else it returns none
-def search_a_song(song):
-    ruth_res = sp.search(song, type="track")
-    if len(res := ruth_res['tracks']['items']) < 1:
-        return
-
-    res = res[0]
-    print(res['uri'])
-    return res['uri']
-
-
-#Intialize bot and dispatcher
+# Initialize bot and dispatcher
 bot = Bot(token=os.getenv("TELEGRAM_TOKEN_BOT"))
 dp = Dispatcher(bot)
 
-#Bot Routes
+
+# Bot Routes
 
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.message):
-    await message.reply("Hi, I'm playlist bot, I can transform your text into the playlist in the spotify! \nPlease Enter the name of the plalist:")
+    state["page"] = 1
+    await message.answer(
+        "Hi, I'm playlist bot, I can transform your text into the playlist in the spotify! \nPlease Enter the name of "
+        "the playlist:")
 
-@dp.message_handler()
-async def echo(message:types.message):
-    await message.answer(message.text)
 
-@dp.message_handler(commands=["create_playlist"])
-async def create_playlist(message: types.message):
-    print("hello")
-    # Open the file with the songs list
-    songs = open('songs.txt', 'r')
+@dp.message_handler(lambda message: state["page"] == 1)
+async def input_name(message: types.message):
+    state["page"] = 2
 
-    scope = "playlist-modify-public"
+    if message.text == "":
+        state["page"] = 1
+        await message.answer("Name can't be empty, enter at least one symbol please...")
+    state["name"] = message.text
+    await message.answer("Send me a description: ")
 
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
 
-    # ([a-z'=:\-\d]\s*)+ - ([a-z=:\-\d']\s*)+ - regular expression for this task WORK
-    # ([a-z'=,():\-\d]\s*)+ - ([a-z=:\-\d']\s*)+ VERSION 0.2 WORK
-    # ([a-z'=,(’):\-\d]\s*)+ - ([a-z=:’\-\d']\s*)+ VERSION 0.22 Probably work
-    # (?:\d+:\d\d -)* (([a-z'=,(’&):\-\d]\s*)+ (-|/) ([a-z=’:&\-\d']\s*)+)+ VERSION 0.3
+@dp.message_handler(lambda message: state["page"] == 2)
+async def input_description(message: types.message):
+    state["page"] = 3
 
-    while not (name := input("Input a name of the playlist: ")):
-        print("Name can't be empty, enter at least one symbol please...")
+    state["description"] = message.text
+    print(state)
+    await message.answer("Send me a list of songs you want to be added into the spotify playlist")
 
-    description = input("Input a description of the playlist: ")
 
-    # list of all songs that must be in the playlist
-    songs_for_playlist = []
+@dp.message_handler(lambda message: state["page"] == 3)
+async def input_songs(message: types.message):
+    state["page"] = 4
 
-    # iteration over the songs list and add each song to songs_for_playlist varialble
-    for i in songs:
-        try:
-            res = re.search("(?:\d+:\d\d -)* (([a-z'=,(’&):\-\d]\s*)+ (-|/) ([a-z=’:&\-\d']\s*)+)+", i,
-                            flags=re.IGNORECASE).group(1)
-        except:
-            continue
-        songs_for_playlist.append(search_a_song(res))
+    if sp_controller.parse_text_and_find_songs(message.text) == 1:
+        state["page"] = 3
+        await message.answer("Send a list with at least one song in format: Artist - Song")
 
-    # it creates a playlist
-    playlist = sp.user_playlist_create(os.getenv("USER_NAME"), name, description=description)
-    playlist_id = playlist['id']
-    playlist_link = playlist['uri']
+    await message.answer(f"Your playlist link: {sp_controller.create_a_playlist(state['name'], state['description'])}")
 
-    # delete all none values from songs_for_playlist
-    songs_for_playlist = [x for x in songs_for_playlist if x is not None]
-
-    # add items to playlist
-    sp.playlist_add_items(playlist_id, songs_for_playlist)
-
-    # send link of the playlist to the user
-    await message.reply("Your playlist link: " + "https://open.spotify.com/playlist/" + playlist_id)
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
